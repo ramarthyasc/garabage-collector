@@ -18,12 +18,16 @@ typedef struct sObject {
 
     // OBJ_PAIR
     struct {
-      struct sObject *head;
+      struct sObject *head; // can be an Object type object. - ie' an int or a pairObject
       struct sObject *tail;
     };
   };
 
 } Object;
+
+
+
+
 
 
 // A Model VirtualMachine to hold a stack
@@ -54,6 +58,39 @@ Object *pop(VM *vm) {
     vm->stackSize--;
     return vm->stack[vm->stackSize];
 }
+
+
+
+
+
+
+// Create objects :
+
+////Helper
+Object *newObject(ObjectType type) {
+    Object *object = (Object *)malloc(sizeof(Object));
+    object->type = type;
+    return object;
+}
+
+void pushInt(VM *vm, int intValue) {
+    Object *object = newObject(OBJ_INT);
+    object->value = intValue;
+    push(vm, object);
+}
+
+Object *pushPair(VM *vm) {
+    Object *object = newObject(OBJ_PAIR);
+    object->tail = pop(vm); 
+    object->head = pop(vm);
+
+    push(vm, object);
+    return object;
+}
+
+
+
+
 
 
 
