@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #define STACK_MAX 256
+typedef struct sObject Object;
+void mark(Object *object);
 // The interpreter for the little language  - dynamically typed and has 2 types
 // of objects : int & pairs
 
@@ -8,6 +10,12 @@
 typedef enum { OBJ_INT, OBJ_PAIR } ObjectType;
 
 typedef struct sObject {
+  // VM's reference to objects (users can't see this) = Linked list
+  struct sObject *next;
+
+  // markbit
+  unsigned char marked;
+
   // tag
   ObjectType type;
 
@@ -18,79 +26,148 @@ typedef struct sObject {
 
     // OBJ_PAIR
     struct {
-      struct sObject *head; // can be an Object type object. - ie' an int or a pairObject
+      struct sObject
+          *head; // can be an Object type object. - ie' an int or a pairObject
       struct sObject *tail;
     };
   };
 
 } Object;
 
-
-
-
-
-
 // A Model VirtualMachine to hold a stack
 typedef struct {
-    Object *stack[STACK_MAX];
-    int stackSize;
+  // Linked list head of the objects
+  Object *firstObject;
+
+  Object *stack[STACK_MAX];
+  int stackSize;
 } VM;
 
-
-
 VM *newVM() {
-    VM *vm = malloc(sizeof(VM));
-    vm->stackSize = 0;
-    return vm;
+  VM *vm = malloc(sizeof(VM));
+  vm->stackSize = 0;
+  
+  // initialize first Object to NULL pointer
+  vm->firstObject = NULL;
+
+  return vm;
 }
 
 // manipulating stack of VM
 void push(VM *vm, Object *value) {
-    assert(vm->stackSize < STACK_MAX && "Stack overflow!!");
-    vm->stack[vm->stackSize] = value;
+  assert(vm->stackSize < STACK_MAX && "Stack overflow!!");
+  vm->stack[vm->stackSize] = value;
 
-    vm->stackSize++;
+  vm->stackSize++;
 }
 
 Object *pop(VM *vm) {
-    assert(vm->stackSize > 0 && "Stack underflow!!");
+  assert(vm->stackSize > 0 && "Stack underflow!!");
 
-    vm->stackSize--;
-    return vm->stack[vm->stackSize];
+  vm->stackSize--;
+  return vm->stack[vm->stackSize];
 }
-
-
-
-
-
 
 // Create objects :
 
 ////Helper
-Object *newObject(ObjectType type) {
-    Object *object = (Object *)malloc(sizeof(Object));
-    object->type = type;
-    return object;
+Object *newObject(VM *vm, ObjectType type) {
+  Object *object = (Object *)malloc(sizeof(Object));
+  object->type = type;
+  object->marked = 0;
+
+  // adding the object to the start of the linked list
+  object->next = vm->firstObject;
+  vm->firstObject = object;
+
+  return object;
 }
 
 void pushInt(VM *vm, int intValue) {
-    Object *object = newObject(OBJ_INT);
-    object->value = intValue;
-    push(vm, object);
+  Object *object = newObject(vm, OBJ_INT);
+  object->value = intValue;
+  push(vm, object);
 }
 
+// we push objects onto the stack before doing pushPair function. So that
+// pushPair takes items from the stack to build the object - Canonical stack
+// based VM way of creating objects
 Object *pushPair(VM *vm) {
-    Object *object = newObject(OBJ_PAIR);
-    object->tail = pop(vm); 
-    object->head = pop(vm);
+  Object *object = newObject(vm, OBJ_PAIR);
+  object->tail = pop(vm);
+  object->head = pop(vm);
 
-    push(vm, object);
-    return object;
+  push(vm, object);
+  return object;
+}
+
+// Marking
+//
+
+void markAll(VM *vm) {
+  for (int i = 0; i < vm->stackSize; i++) {
+    mark(vm->stack[i]);
+  }
+}
+
+void mark(Object *object) {
+  // cyclical referencing break
+  if (object->marked) {
+    return;
+  }
+
+  object->marked = 1;
+
+  if (object->type == OBJ_PAIR) {
+    mark(object->head);
+    mark(object->tail);
+  }
+
+  // if OBJ_INT, then do nothing
+}
+
+// Marking complete, now sweep
+// SWEEP - all the unreachable objects (they are unreachable.. now what to do ?)
+//
+//  Trick to solve this = VM has it's own reference to objects that are distinct
+//  from the semantics that are visible to the language user
+
+// ie; we can keep track of them ourselves
+
+// Maintain a linked list by modifying the Object struct(next) & VM struct(firstObject)
+
+
+//NOTE: //POINTERS:  Think of the place/address as the box with the address, and inside - is the value; 
+//Pointer (which has that address as the value) point to that box(address)
+//Always think of all Variables or Objects as value within a Box. And the box border has the address.
+//Always think of arrows and boxes and inside the box, there is the value. And the box is situated inside wherever
+// that address is. ie; if the address is of the variable of an object, then box is situated there.
+void sweep(VM *vm) {
+    // go through all the objects in the list (referenced = marked , unreferenced = unmarked)
+    Object **curr = &vm->firstObject; //double pointer because even if the middle object is the unmarked,then i can 
+                                      //point the next of the previous object to the next of the unmarked object.
+    while(*curr) {
+        if (!(*curr)->marked) {
+            Object *unreached = *curr;
+            *curr = unreached->next;
+            free(unreached);
+        } else {
+            (*curr)->marked = 0; // for next GC
+            curr = &(*curr)->next; // variable is next. so curr's value points to the box(address) of next's value
+        }
+    }
+
 }
 
 
 
 
+/// IMPLEMENTATION
+void gc() {
+    markAll(VM *vm);
+    sweep(VM *vm);
+}
 
 
+///// we will collect after a certain number of allocations
 
