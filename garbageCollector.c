@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #define STACK_MAX 256
 #define INITIAL_GC_THRESHOLD 128
@@ -66,6 +67,9 @@ VM *newVM() {
 
 // manipulating stack of VM
 void push(VM *vm, Object *value) {
+    if (vm->stackSize >= STACK_MAX) {
+        printf("STACKOVERFLOW BROOO\n");
+    }
   assert(vm->stackSize < STACK_MAX && "Stack overflow!!");
   vm->stack[vm->stackSize] = value;
 
@@ -188,6 +192,7 @@ void sweep(VM *vm) {
 /// IMPLEMENTATION
 ///// we will collect after a certain number of allocations
 void gc(VM *vm) {
+    printf("GC called\n");
   markAll(vm);
   sweep(vm);
 
@@ -199,13 +204,33 @@ void gc(VM *vm) {
 
 int main() {
   VM *vm = newVM();
-  int i = 0;
-  pushInt(vm, i);
-  pushInt(vm, i + 1);
-  pushInt(vm, i + 2);
-  pushPair(vm);
-  pushInt(vm, i + 3);
-  pushPair(vm);
-  pushPair(vm);
-  pushInt(vm, i + 4);
+
+  int LIMIT = STACK_MAX/2 - 1;
+
+  for (int i = 0; i < LIMIT; i++) {
+    pushInt(vm, i);
+    pushInt(vm, i + 1);
+    pushInt(vm, i + 2);
+    pushPair(vm);
+    pushInt(vm, i + 3);
+    pushPair(vm);
+    pushInt(vm, i + 4);
+    pushPair(vm);
+    pushPair(vm);
+
+    // throwing out of use
+    pop(vm);
+
+    pushInt(vm, i + 5);
+    pushInt(vm, i + 6);
+    pushPair(vm);
+    pushInt(vm, i + 6);
+    pushInt(vm, i + 7);
+
+    // throwing out of use
+    pop(vm);
+    // Total 14 objects are created in one loop itself
+    printf("StackSize: %d, Allocated Objects: %d \n", vm->stackSize, vm->numObjects);
+  }
+  return 0;
 }
