@@ -67,9 +67,9 @@ VM *newVM() {
 
 // manipulating stack of VM
 void push(VM *vm, Object *value) {
-    if (vm->stackSize >= STACK_MAX) {
-        printf("STACKOVERFLOW BROOO\n");
-    }
+  if (vm->stackSize >= STACK_MAX) {
+    printf("STACKOVERFLOW BROOO\n");
+  }
   assert(vm->stackSize < STACK_MAX && "Stack overflow!!");
   vm->stack[vm->stackSize] = value;
 
@@ -192,7 +192,7 @@ void sweep(VM *vm) {
 /// IMPLEMENTATION
 ///// we will collect after a certain number of allocations
 void gc(VM *vm) {
-    printf("GC called\n");
+  printf("GC called\n");
   markAll(vm);
   sweep(vm);
 
@@ -205,7 +205,7 @@ void gc(VM *vm) {
 int main() {
   VM *vm = newVM();
 
-  int LIMIT = STACK_MAX/2 - 1;
+  int LIMIT = STACK_MAX / 2 - 1;
 
   for (int i = 0; i < LIMIT; i++) {
     pushInt(vm, i);
@@ -230,7 +230,8 @@ int main() {
     // throwing out of use
     pop(vm);
     // Total 14 objects are created in one loop itself
-    printf("StackSize: %d, Allocated Objects: %d \n", vm->stackSize, vm->numObjects);
+    printf("StackSize: %d, Allocated Objects: %d \n", vm->stackSize,
+           vm->numObjects);
   }
   return 0;
 }
